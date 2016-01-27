@@ -33,6 +33,8 @@ object LocalBackend {
 
   // Other
   val DockerFlag = "docker"
+  val ContinueOnRcFlag = "continueOnReturnCode"
+  val FailOnStderrFlag = "failOnStderr"
 
   case class OutputStmtEval(lhs: WdlType, rhs: Try[WdlValue])
 
@@ -62,9 +64,10 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
   val stdoutWriter = stdout.untailed
   val stderrTailed = stderr.tailed(100)
   val argv = Seq("/bin/bash", script.toString)
-  val dockerImage = getDockerImage(task.runtimeAttributes)
+  val dockerImage = getRuntimeAttribute(task.runtimeAttributes, DockerFlag)
+  val continueOnRc = getRuntimeAttribute(task.runtimeAttributes, ContinueOnRcFlag)
+  val failOnStderr = getRuntimeAttribute(task.runtimeAttributes, FailOnStderrFlag)
   val expressionEval = new WorkflowEngineFunctions(executionDir)
-
 
   /**
     * Prepare the task and context for execution.
@@ -150,8 +153,8 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * Gather Docker image name from runtime attributes. If it's not present returns none.
     * @param runtimeAttributes Runtime requirements for the task.
     */
-  private def getDockerImage(runtimeAttributes: Map[String, String]): Option[String] = {
-    val dockerFlag = runtimeAttributes.filter(p => p._1.equals(DockerFlag))
+  private def getRuntimeAttribute(runtimeAttributes: Map[String, String], key: String): Option[String] = {
+    val dockerFlag = runtimeAttributes.filter(p => p._1.equals(key))
     if (dockerFlag.size == 1 && !dockerFlag.values.head.isEmpty) Option(dockerFlag.values.head) else None
   }
 
@@ -246,6 +249,29 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     }
   }
 
+  private def isInContinueOnReturnCode(processReturnCode: Int): Boolean = {
+    continueOnRc match {
+      case Some(codes) => getContinueOnReturnCodeSet(codes).contains(processReturnCode) || getContinueOnReturnCodeFlag(codes)
+      case None => false
+    }
+  }
+
+  private def getContinueOnReturnCodeFlag(continueOnRcValue: String): Boolean = {
+    try {
+      continueOnRcValue.toBoolean
+    } catch {
+      case ex: Exception => false
+    }
+  }
+
+  private def getContinueOnReturnCodeSet(continueOnRcValue: String): List[Int] = {
+    try {
+      continueOnRcValue.split(" ").toList.map(_.toInt)
+    } catch {
+      case nfe: NumberFormatException => List()
+    }
+  }
+
   /**
     * Run a command using a bash script.
     * @return A TaskStatus with the final status of the task.
@@ -266,20 +292,23 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     List(stdoutWriter.writer, stderrTailed.writer).foreach(_.flushAndClose())
 
     val stderrFileLength = Try(Files.size(stderr)).getOrElse(0L)
+    val failOnErrFlag = failOnStderr.getOrElse("false").toBoolean
+    val rc = returnCode.contentAsString.stripLineEnd.toInt
 
-    // TODO: check continue on error.
-
-    if (stderrFileLength > 0) {
+    if (processReturnCode != 0) {
       TaskFinalStatus(Status.Failed, FailureTaskResult(
-        new IllegalStateException("StdErr file is not empty."), processReturnCode, stderr.toString))
-    } else if (stderrFileLength <= 0 && processReturnCode != 0) {
+        new IllegalStateException("Execution process failed."), processReturnCode, stderr.toString))
+    } else if (failOnErrFlag && stderrFileLength > 0) {
       TaskFinalStatus(Status.Failed, FailureTaskResult(
-        new IllegalStateException("RC code is not equals to zero."), processReturnCode, stderr.toString))
+        new IllegalStateException("StdErr file is not empty."), rc, stderr.toString))
+    } else if (rc != 0 && !isInContinueOnReturnCode(rc)) {
+      TaskFinalStatus(Status.Failed, FailureTaskResult(
+        new IllegalStateException("Return code is not equals to zero."), rc, stderr.toString))
     } else {
       def lookupFunction: String => WdlValue = WdlExpression.standardLookupFunction(task.inputs, task.declarations, expressionEval)
       val outputsExpressions = task.outputs.map(
         output => output.name -> OutputStmtEval(output.wdlType, output.expression.evaluate(lookupFunction, expressionEval)))
-      processOutputResult(processReturnCode, outputsExpressions)
+      processOutputResult(rc, outputsExpressions)
     }
   }
 
