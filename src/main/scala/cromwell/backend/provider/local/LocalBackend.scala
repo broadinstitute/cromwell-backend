@@ -235,7 +235,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
         throw new IllegalStateException(s"Output file $file does not exist.")
     }
 
-    //TODO: check for map of files. If this possible?
+    //TODO: check for map of files. Is going to be supported that use case?
     val lhsType = output.lhs
     val rhsType = output.rhs.get.wdlType
     rhsType match {
@@ -249,13 +249,23 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     }
   }
 
-  private def isInContinueOnReturnCode(processReturnCode: Int): Boolean = {
+  /**
+    * Looks for return code resulted from task in the 'ContinueOnReturnCode' entry from runtime requirements.
+    * @param returnCode Return code obtained from task execution.
+    * @return True if this RC is contained otherwise false.
+    */
+  private def isInContinueOnReturnCode(returnCode: Int): Boolean = {
     continueOnRc match {
-      case Some(codes) => getContinueOnReturnCodeSet(codes).contains(processReturnCode) || getContinueOnReturnCodeFlag(codes)
+      case Some(codes) => getContinueOnReturnCodeSet(codes).contains(returnCode) || getContinueOnReturnCodeFlag(codes)
       case None => false
     }
   }
 
+  /**
+    * Checks if the string in 'ContinueOnReturnCode' entry from runtime requirements contains a Boolean value.
+    * @param continueOnRcValue String from runtime requirements definition in the WDL file.
+    * @return If it is defined, it returns the Boolean value otherwise false.
+    */
   private def getContinueOnReturnCodeFlag(continueOnRcValue: String): Boolean = {
     try {
       continueOnRcValue.toBoolean
@@ -264,6 +274,11 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     }
   }
 
+  /**
+    * Tries to get a list of return codes in 'ContinueOnReturnCode' entry from runtime requirements.
+    * @param continueOnRcValue String from runtime requirements definition in the WDL file.
+    * @return If there are values, it returns those values otherwise an empty list.
+    */
   private def getContinueOnReturnCodeSet(continueOnRcValue: String): List[Int] = {
     try {
       continueOnRcValue.split(" ").toList.map(_.toInt)
