@@ -1,22 +1,18 @@
 package cromwell.caching
 
-import java.nio.file.Path
+import cromwell.backend.model.TaskDescriptor
+import cromwell.caching.caching.Md5sum
 
 /**
-  * Provides basic definition to work with files and container images hashes.
+  * Provides basic definition to work with TaskDescriptor hashes.
   */
 trait Cacheable {
-  /**
-    * Get file content hash.
-    * @param files List of files to compute.
-    * @return List of hashes related to files.
-    */
-  def computeInputFileHash(files: List[Path]): Map[Path, String]
 
   /**
-    * Get container image hash.
-    * @param imageName Image name.
-    * @return A hash.
+    * Returns hash based on TaskDescriptor attributes.
+    * @param task Task attributes.
+    * @return Return hash for related task.
     */
-  def computeContainerImageHash(imageName: String): Map[String, String]
+  def computeHash(task: TaskDescriptor): Md5sum
+
 }

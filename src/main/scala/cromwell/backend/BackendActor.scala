@@ -3,7 +3,7 @@ package cromwell.backend
 import akka.actor.{Actor, ActorLogging}
 import akka.event.LoggingReceive
 import cromwell.backend.BackendActor._
-import cromwell.backend.model.Subscription
+import cromwell.backend.model.{TaskDescriptor, Subscription}
 
 object BackendActor {
   sealed trait BackendActorMessage
@@ -13,6 +13,7 @@ object BackendActor {
   case object CleanUp extends BackendActorMessage
   case class SubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
   case class UnsubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
+  case class ComputeHash(task: TaskDescriptor) extends BackendActorMessage
 }
 
 /**
@@ -28,5 +29,6 @@ trait BackendActor extends Backend with Actor with ActorLogging {
     case CleanUp => cleanUp
     case SubscribeToEvent(obj) => subscribeToEvent(obj)
     case UnsubscribeToEvent(obj) => unsubscribeToEvent(obj)
+    case ComputeHash(task) => computeHash(task)
   }
 }

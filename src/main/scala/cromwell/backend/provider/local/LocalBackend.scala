@@ -10,11 +10,14 @@ import com.typesafe.scalalogging.StrictLogging
 import cromwell.backend.BackendActor
 import cromwell.backend.model._
 import cromwell.backend.provider.local.FileExtensions._
+import cromwell.caching.caching
+import org.apache.commons.codec.digest.DigestUtils
 import wdl4s.WdlExpression
 import wdl4s.types.{WdlArrayType, WdlFileType, WdlType}
 import wdl4s.values.{WdlArray, WdlSingleFile, WdlValue}
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ListMap
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -125,20 +128,24 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
   }
 
   /**
-    * Get file content hash.
-    * @param files List of files to compute.
-    * @return List of hashes related to files.
+    * Returns hash based on TaskDescriptor attributes.
+    * @param task Task attributes.
+    * @return Return hash for related task.
     */
-  override def computeInputFileHash(files: List[Path]): Map[Path, String] = {
-    files.map(path => path -> File(path.toString).md5).toMap[Path, String]
-  }
+  override def computeHash(task: TaskDescriptor): String = {
+    val orderedInputs = task.inputs.toSeq.sortBy(_._1)
+    val orderedOutputs = task.outputs.sortWith((l, r) => l.name > r.name)
+    val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1):_*)
+    val overallHash = Seq(
+      task.commandTemplate,
+      orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v, executionDir)}" } mkString "\n",
+      // TODO: Docker hash computation is missing. In case it exists.
+      orderedRuntime map { case (k, v) => s"$k=$v" } mkString "\n",
+      orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.expression.toWdlString}" } mkString "\n"
+    ).mkString("\n---\n")
 
-  /**
-    * Get container image hash.
-    * @param imageName Image name.
-    * @return A hash.
-    */
-  override def computeContainerImageHash(imageName: String): Map[String, String] = ???
+    DigestUtils.md5Hex(overallHash)
+  }
 
   /**
     * Notifies to subscribers about a new event while executing the task.
@@ -340,7 +347,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     } else {
       try {
         TaskFinalStatus(Status.Succeeded, SuccessfulTaskResult(outputsExpressions.map(
-          output => output._1 -> resolveOutputValue(output._2)).toMap))
+          output => output._1 -> resolveOutputValue(output._2)).toMap, new ExecutionHash(computeHash(task), None)))
       } catch {
         case ex: Exception => TaskFinalStatus(Status.Failed, FailureTaskResult(ex, processReturnCode, stderr.toString))
       }
