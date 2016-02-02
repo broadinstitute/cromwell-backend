@@ -52,7 +52,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   import LocalBackend._
 
-  implicit val timeout = Timeout(10 seconds)
+  implicit val timeout = Timeout(5 seconds)
   private val subscriptions = ArrayBuffer[Subscription[ActorRef]]()
   private var processAbortFunc: Option[() => Unit] = None
 
@@ -129,16 +129,15 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Returns hash based on TaskDescriptor attributes.
-    * @param task Task attributes.
     * @return Return hash for related task.
     */
-  override def computeHash(task: TaskDescriptor): String = {
+  override def computeHash: String = {
     val orderedInputs = task.inputs.toSeq.sortBy(_._1)
     val orderedOutputs = task.outputs.sortWith((l, r) => l.name > r.name)
     val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1):_*)
     val overallHash = Seq(
       task.commandTemplate,
-      orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v, executionDir)}" } mkString "\n",
+      orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v)}" } mkString "\n",
       // TODO: Docker hash computation is missing. In case it exists.
       orderedRuntime map { case (k, v) => s"$k=$v" } mkString "\n",
       orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.expression.toWdlString}" } mkString "\n"
@@ -347,7 +346,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     } else {
       try {
         TaskFinalStatus(Status.Succeeded, SuccessfulTaskResult(outputsExpressions.map(
-          output => output._1 -> resolveOutputValue(output._2)).toMap, new ExecutionHash(computeHash(task), None)))
+          output => output._1 -> resolveOutputValue(output._2)).toMap, new ExecutionHash(computeHash, None)))
       } catch {
         case ex: Exception => TaskFinalStatus(Status.Failed, FailureTaskResult(ex, processReturnCode, stderr.toString))
       }

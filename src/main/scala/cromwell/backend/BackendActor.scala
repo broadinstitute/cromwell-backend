@@ -13,7 +13,7 @@ object BackendActor {
   case object CleanUp extends BackendActorMessage
   case class SubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
   case class UnsubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
-  case class ComputeHash(task: TaskDescriptor) extends BackendActorMessage
+  case object ComputeHash extends BackendActorMessage
 }
 
 /**
@@ -29,6 +29,6 @@ trait BackendActor extends Backend with Actor with ActorLogging {
     case CleanUp => cleanUp
     case SubscribeToEvent(obj) => subscribeToEvent(obj)
     case UnsubscribeToEvent(obj) => unsubscribeToEvent(obj)
-    case ComputeHash(task) => computeHash(task)
+    case ComputeHash => sender ! computeHash
   }
 }
