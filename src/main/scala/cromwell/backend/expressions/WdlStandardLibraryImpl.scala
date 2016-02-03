@@ -6,6 +6,7 @@ import wdl4s.expression.WdlStandardLibraryFunctions
 import wdl4s.types.{WdlFileType, WdlObjectType, WdlStringType, WdlArrayType}
 import wdl4s.values._
 
+import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
 trait WdlStandardLibraryImpl extends WdlStandardLibraryFunctions {
