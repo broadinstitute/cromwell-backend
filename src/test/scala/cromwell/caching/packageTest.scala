@@ -67,9 +67,8 @@ class packageTest extends WordSpecLike with Matchers {
       val actualHash = caching.computeWdlValueHash(wdlMap)
 
       file.delete()
+      file2.delete()
       assert(expectedHash.equals(actualHash))
     }
-
-
   }
 }
