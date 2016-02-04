@@ -34,9 +34,7 @@ class BackendConfiguration(backendList: List[BackendConfigurationEntry], default
     * It lookup for the backend definition which contains the name defined in 'default' entry in backend configuration.
     * @return Backend configuration.
     */
-  def getDefaultBackend(): BackendConfigurationEntry = backendList.find(_.name.equals(defaultBackend))  match {
-    case Some(backend) => backend
-    case None =>
+  def getDefaultBackend(): BackendConfigurationEntry = backendList find { _.name.equals(defaultBackend) } getOrElse {
       val errMsg = "Default backend configuration was not found."
       logger.error(errMsg)
       throw new IllegalStateException(errMsg)
