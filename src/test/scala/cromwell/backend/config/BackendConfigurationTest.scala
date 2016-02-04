@@ -2,7 +2,7 @@ package cromwell.backend.config
 
 import org.scalatest.{Matchers, WordSpecLike}
 
-class packageTest extends WordSpecLike with Matchers {
+class BackendConfigurationTest extends WordSpecLike with Matchers {
   val backendConfigurationEntry = new BackendConfigurationEntry("local", "cromwell.backend.local")
   val backendConfigurationEntry2 = new BackendConfigurationEntry("acme", "cromwell.backend.acme")
   val backendList = List(backendConfigurationEntry, backendConfigurationEntry2)
@@ -28,7 +28,9 @@ class packageTest extends WordSpecLike with Matchers {
 
     "throw an exception when a default backend is not defined" in {
       val backendConfiguration = new BackendConfiguration(backendList, "someOther")
-      intercept[IllegalStateException] {backendConfiguration.getDefaultBackend()}
+      intercept[IllegalStateException] {
+        backendConfiguration.getDefaultBackend()
+      }
     }
   }
 }
