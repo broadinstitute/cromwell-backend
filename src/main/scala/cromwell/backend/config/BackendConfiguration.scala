@@ -1,6 +1,7 @@
 package cromwell.backend.config
 
 import com.typesafe.config.ConfigFactory
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
 
@@ -27,13 +28,17 @@ object BackendConfiguration {
   * @param backendList List of backend entries in configuration file.
   * @param defaultBackend Backend name to be used as default.
   */
-class BackendConfiguration(backendList: List[BackendConfigurationEntry], defaultBackend: String) {
+class BackendConfiguration(backendList: List[BackendConfigurationEntry], defaultBackend: String) extends StrictLogging {
   /**
     * Gets default backend configuration. There will be always just one default backend defined in configuration file.
     * It lookup for the backend definition which contains the name defined in 'default' entry in backend configuration.
     * @return Backend configuration.
     */
-  def getDefaultBackend(): BackendConfigurationEntry = backendList.filter(_.name.equals(defaultBackend)).head
+  def getDefaultBackend(): BackendConfigurationEntry = backendList find { _.name.equals(defaultBackend) } getOrElse {
+      val errMsg = "Default backend configuration was not found."
+      logger.error(errMsg)
+      throw new IllegalStateException(errMsg)
+  }
 
   /**
     * Gets all backend configurations from config file.
