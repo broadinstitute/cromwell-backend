@@ -23,10 +23,10 @@ object BackendActor {
   */
 trait BackendActor extends Backend with Actor with ActorLogging {
   def receive: Receive = LoggingReceive {
-    case Prepare => prepare
-    case Execute => execute
-    case Stop => stop
-    case CleanUp => cleanUp
+    case Prepare => prepare()
+    case Execute => execute()
+    case Stop => stop()
+    case CleanUp => cleanUp()
     case SubscribeToEvent(obj) => subscribeToEvent(obj)
     case UnsubscribeToEvent(obj) => unsubscribeToEvent(obj)
     case ComputeHash => sender ! computeHash

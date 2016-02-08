@@ -140,7 +140,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
       orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v)}" } mkString "\n",
       // TODO: Docker hash computation is missing. In case it exists.
       orderedRuntime map { case (k, v) => s"$k=$v" } mkString "\n",
-      orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.expression.toWdlString}" } mkString "\n"
+      orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.requiredExpression.toWdlString}" } mkString "\n"
     ).mkString("\n---\n")
 
     DigestUtils.md5Hex(overallHash)
@@ -328,7 +328,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     } else {
       def lookupFunction: String => WdlValue = WdlExpression.standardLookupFunction(task.inputs, task.declarations, expressionEval)
       val outputsExpressions = task.outputs.map(
-        output => output.name -> OutputStmtEval(output.wdlType, output.expression.evaluate(lookupFunction, expressionEval)))
+        output => output.name -> OutputStmtEval(output.wdlType, output.requiredExpression.evaluate(lookupFunction, expressionEval)))
       processOutputResult(rc, outputsExpressions)
     }
   }
