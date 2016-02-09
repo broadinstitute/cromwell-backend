@@ -1,6 +1,7 @@
 package cromwell.backend
 
 import akka.actor.{Actor, ActorLogging}
+import akka.event.LoggingReceive
 import cromwell.backend.BackendValidationActor.{Validate, ValidationResult}
 import wdl4s.NamespaceWithWorkflow
 
@@ -38,11 +39,12 @@ trait BackendValidationActor extends Actor with ActorLogging {
   def validateWorkflow(namespace: NamespaceWithWorkflow, wfOptionsJson: String, wfInputsJson: Option[String] = None): Future[ValidationResult]
 
   //We don't want sub classes to modify this behavior
-  final def receive: Receive = {
+  final def receive: Receive = LoggingReceive {
     case Validate(namespace, optionsJson, inputsJson) =>
       val requester = sender()
       validateWorkflow(namespace, optionsJson, inputsJson) map {
         requester ! _
       }
+    case unknownMessage@_ => log.error(s"BackendValidationActor received an unknown message: ${unknownMessage}")
   }
 }
