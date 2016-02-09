@@ -3,13 +3,13 @@ package cromwell.backend
 import akka.actor.{Actor, ActorLogging}
 import akka.event.LoggingReceive
 import cromwell.backend.BackendValidationActor.{Validate, ValidationResult}
-import wdl4s.NamespaceWithWorkflow
+import wdl4s.{WorkflowCoercedInputs, NamespaceWithWorkflow}
 
 import scala.concurrent.Future
 
 object BackendValidationActor {
   sealed trait BackendValidationActorMessage
-  case class Validate(namespace: NamespaceWithWorkflow, wfInputsJson: Option[String] = None, wfOptionsJson: String) extends BackendValidationActorMessage
+  case class Validate(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None) extends BackendValidationActorMessage
   case class ValidationResult(isSuccess: Boolean) extends BackendValidationActorMessage
 }
 
@@ -32,11 +32,11 @@ trait BackendValidationActor extends Actor with ActorLogging {
   /**
     *
     * @param namespace Represent a directly runnable WDL Namespace
-    * @param wfInputsJson Workflow options specified as a Json String
+    * @param wfInputs Workflow options specified as a Json String
     * @param wfOptionsJson Workflow options specified as a Json String
     * @return True (wrapped in a message) to indicate a Yay!
     */
-  def validateWorkflow(namespace: NamespaceWithWorkflow, wfInputsJson: Option[String] = None, wfOptionsJson: String): Future[ValidationResult]
+  def validateWorkflow(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None): Future[ValidationResult]
 
   //We don't want sub classes to modify this behavior
   final def receive: Receive = LoggingReceive {
