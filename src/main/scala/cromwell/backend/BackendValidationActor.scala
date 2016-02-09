@@ -9,7 +9,7 @@ import scala.concurrent.Future
 
 object BackendValidationActor {
   sealed trait BackendValidationActorMessage
-  case class Validate(namespace: NamespaceWithWorkflow, wfOptionsJson: String, wfInputsJson: Option[String] = None) extends BackendValidationActorMessage
+  case class Validate(namespace: NamespaceWithWorkflow, wfInputsJson: Option[String] = None, wfOptionsJson: String) extends BackendValidationActorMessage
   case class ValidationResult(isSuccess: Boolean) extends BackendValidationActorMessage
 }
 
@@ -30,21 +30,21 @@ trait BackendValidationActor extends Actor with ActorLogging {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   /**
-    * Validates whether this workflow can be run on this backend
     *
-    * @param namespace
+    * @param namespace Represent a directly runnable WDL Namespace
+    * @param wfInputsJson Workflow options specified as a Json String
     * @param wfOptionsJson Workflow options specified as a Json String
     * @return True (wrapped in a message) to indicate a Yay!
     */
-  def validateWorkflow(namespace: NamespaceWithWorkflow, wfOptionsJson: String, wfInputsJson: Option[String] = None): Future[ValidationResult]
+  def validateWorkflow(namespace: NamespaceWithWorkflow, wfInputsJson: Option[String] = None, wfOptionsJson: String): Future[ValidationResult]
 
   //We don't want sub classes to modify this behavior
   final def receive: Receive = LoggingReceive {
-    case Validate(namespace, optionsJson, inputsJson) =>
+    case Validate(namespace, inputsJson, optionsJson) =>
       val requester = sender()
-      validateWorkflow(namespace, optionsJson, inputsJson) map {
+      validateWorkflow(namespace, inputsJson, optionsJson) map {
         requester ! _
       }
-    case unknownMessage@_ => log.error(s"BackendValidationActor received an unknown message: ${unknownMessage}")
+    case unknownMessage => log.error(s"BackendValidationActor received an unknown message: ${unknownMessage}")
   }
 }
