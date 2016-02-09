@@ -3,7 +3,7 @@ package cromwell.backend.config
 import org.scalatest.{Matchers, WordSpecLike}
 
 class BackendConfigurationTest extends WordSpecLike with Matchers {
-  val backendConfigurationEntry = new BackendConfigurationEntry("local", "cromwell.backend.local")
+  val backendConfigurationEntry = new BackendConfigurationEntry("local", "cromwell.backend.local", Option("no.validation.class"))
   val backendConfigurationEntry2 = new BackendConfigurationEntry("acme", "cromwell.backend.acme")
   val backendList = List(backendConfigurationEntry, backendConfigurationEntry2)
 
