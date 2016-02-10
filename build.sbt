@@ -1,10 +1,24 @@
-name := "Cromwell Backend"
+import com.typesafe.sbt.GitPlugin.autoImport._
+import com.typesafe.sbt.SbtGit.GitCommand
 
-version := "1.0"
+name := "Cromwell Backend"
 
 scalaVersion := "2.11.7"
 
 organization := ""
+
+// Upcoming release, or current if we're on the master branch
+git.baseVersion := "0.1"
+
+// Shorten the git commit hash
+git.gitHeadCommit := git.gitHeadCommit.value map { _.take(7) }
+
+// Travis will deploy tagged releases, add -SNAPSHOT for all local builds
+git.gitUncommittedChanges := true
+
+versionWithGit
+
+assemblyJarName in assembly := "cromwell-backend-" + git.baseVersion.value + ".jar"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 
@@ -25,8 +39,6 @@ libraryDependencies ++= {
     "commons-codec" % "commons-codec" % "1.10",
     "org.broadinstitute" %% "wdl4s" % "0.1")
 }
-
-assemblyJarName in assembly := "cromwell-backend.jar"
 
 // The reason why -Xmax-classfile-name is set is because this will fail
 // to build on Docker otherwise.  The reason why it's 200 is because it
