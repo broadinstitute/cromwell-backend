@@ -5,7 +5,7 @@ name := "Cromwell Backend"
 
 scalaVersion := "2.11.7"
 
-organization := ""
+organization := "org.broadinstitute"
 
 // Upcoming release, or current if we're on the master branch
 git.baseVersion := "0.1"
@@ -37,7 +37,7 @@ libraryDependencies ++= {
     "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test",
     "com.github.pathikrit" %% "better-files" % "2.13.0",
     "commons-codec" % "commons-codec" % "1.10",
-    "org.broadinstitute" %% "wdl4s" % "0.1")
+    "org.broadinstitute" %% "wdl4s" % "0.2")
 }
 
 // The reason why -Xmax-classfile-name is set is because this will fail
