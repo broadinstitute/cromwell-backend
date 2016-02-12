@@ -10,7 +10,10 @@ import scala.concurrent.Future
 object BackendValidationActor {
   sealed trait BackendValidationActorMessage
   case class Validate(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None) extends BackendValidationActorMessage
-  case class ValidationResult(isSuccess: Boolean) extends BackendValidationActorMessage
+
+  sealed trait ValidationResult extends BackendValidationActorMessage
+  case object SuccessfulValidationResult extends ValidationResult
+  final case class FailedValidationResult(errors: List[String]) extends ValidationResult
 }
 
 /**
