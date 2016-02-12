@@ -61,6 +61,4 @@ class BackendValidationActorSpec extends TestKit(ActorSystem("BackendValidationA
   }
 
   override def afterAll(): Unit = system.shutdown()
-
-
 }
