@@ -46,6 +46,7 @@ object LocalBackend {
 
 /**
   * Executes a task in local computer through command line. It can be also executed in a Docker container.
+  *
   * @param task Task descriptor.
   */
 class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging {
@@ -129,6 +130,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Returns hash based on TaskDescriptor attributes.
+    *
     * @return Return hash for related task.
     */
   override def computeHash: String = {
@@ -148,6 +150,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Notifies to subscribers about a new event while executing the task.
+    *
     * @param message A task status event.
     */
   private def notifyToSubscribers(message: ExecutionEvent): Unit = {
@@ -157,6 +160,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Gather Docker image name from runtime attributes. If it's not present returns none.
+    *
     * @param runtimeAttributes Runtime requirements for the task.
     */
   private def getRuntimeAttribute(runtimeAttributes: Map[String, String], key: String): Option[String] = {
@@ -166,6 +170,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Extracts folder path from specific input file.
+    *
     * @param file Absolute path from input file.
     * @return File's folder.
     */
@@ -181,6 +186,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Creates docker command in order to execute the task into a container.
+    *
     * @param image Docker image name.
     * @return Command to execute.
     */
@@ -200,6 +206,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Extract folder path from input files.
+    *
     * @return A list with folders to be mount in a docker container.
     */
   private def extractFolderFromInput(wdlValueList: List[WdlValue]): List[String] = {
@@ -228,17 +235,18 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
   }
 
   /**
-    * Resolves absolute path for output files. If it is not a file, it will returns same value.
+    * Resolves absolute path for output files, resolving a non-absolute path to the context of the executionDirectory
+    * if necessary.
+    *
     * @param output Pair of WdlType and WdlValue
     * @return WdlValue with absolute path if it is a file.
     */
   private def resolveOutputValue(output: OutputStmtEval): WdlValue = {
     def getAbsolutePath(file: String): Path = {
-      val absolutePath = Paths.get(executionDir.toString, file)
-      if (absolutePath.exists)
-        absolutePath
-      else
-        throw new IllegalStateException(s"Output file $file does not exist.")
+      val asIs = Paths.get(file)
+      val path = if (asIs.isAbsolute) asIs else Paths.get(executionDir.toString, file)
+
+      if (path.exists) path else throw new IllegalStateException(s"Output file ${path.toFile.getAbsolutePath} does not exist.")
     }
 
     //TODO: check for map of files. Is going to be supported that use case?
@@ -257,6 +265,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Looks for return code resulted from task in the 'ContinueOnReturnCode' entry from runtime requirements.
+    *
     * @param returnCode Return code obtained from task execution.
     * @return True if this RC is contained otherwise false.
     */
@@ -269,6 +278,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Checks if the string in 'ContinueOnReturnCode' entry from runtime requirements contains a Boolean value.
+    *
     * @param continueOnRcValue String from runtime requirements definition in the WDL file.
     * @return If it is defined, it returns the Boolean value otherwise false.
     */
@@ -282,6 +292,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Tries to get a list of return codes in 'ContinueOnReturnCode' entry from runtime requirements.
+    *
     * @param continueOnRcValue String from runtime requirements definition in the WDL file.
     * @return If there are values, it returns those values otherwise an empty list.
     */
@@ -295,6 +306,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Run a command using a bash script.
+    *
     * @return A TaskStatus with the final status of the task.
     */
   private def executeTask(): TaskFinalStatus = {
@@ -335,6 +347,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   /**
     * Process output evaluating expressions, checking for created files and converting WdlString to WdlSimpleFile if necessary.
+    *
     * @param processReturnCode Return code from process.
     * @param outputsExpressions Outputs.
     * @return TaskStatus with final status of the task.
@@ -368,6 +381,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * "first line
     * second line
     * third line"
+    *
     * @param s String to process
     * @return String which has common leading whitespace removed from each line
     */
