@@ -136,7 +136,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
   override def computeHash: String = {
     val orderedInputs = task.inputs.toSeq.sortBy(_._1)
     val orderedOutputs = task.outputs.sortWith((l, r) => l.name > r.name)
-    val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1):_*)
+    val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1): _*)
     val overallHash = Seq(
       task.commandTemplate,
       orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v)}" } mkString "\n",
