@@ -59,8 +59,11 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
   val workingDir = task.workingDir
   val taskWorkingDir = task.name
-  val shardId = Random.nextInt(Integer.MAX_VALUE).toString
-  val executionDir = Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir, shardId).toAbsolutePath
+  val shardId = task.index
+  val executionDir = shardId match {
+    case Some(index) => Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir, index.toString).toAbsolutePath
+    case None =>  Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir).toAbsolutePath
+  }
   val stdout = Paths.get(executionDir.toString, StdoutFile)
   val stderr = Paths.get(executionDir.toString, StderrFile)
   val script = Paths.get(executionDir.toString, ScriptFile)
@@ -326,22 +329,26 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
     val stderrFileLength = Try(Files.size(stderr)).getOrElse(0L)
     val failOnErrFlag = failOnStderr.getOrElse("false").toBoolean
-    val rc = returnCode.contentAsString.stripLineEnd.toInt
+    lazy val rc = Try(returnCode.contentAsString.stripLineEnd.toInt)
 
     if (processReturnCode != 0) {
       TaskFinalStatus(Status.Failed, FailureTaskResult(
         new IllegalStateException("Execution process failed."), processReturnCode, stderr.toString))
+    } else if (rc.isFailure) {
+      // case where docker fails.
+      TaskFinalStatus(Status.Failed, FailureTaskResult(rc.failed.get, processReturnCode, stderr.toString))
     } else if (failOnErrFlag && stderrFileLength > 0) {
+      // rc status is validated in previous step so it is safe to use .get
       TaskFinalStatus(Status.Failed, FailureTaskResult(
-        new IllegalStateException("StdErr file is not empty."), rc, stderr.toString))
-    } else if (rc != 0 && !isInContinueOnReturnCode(rc)) {
+        new IllegalStateException("StdErr file is not empty."), rc.get, stderr.toString))
+    } else if (rc.get != 0 && !isInContinueOnReturnCode(rc.get)) {
       TaskFinalStatus(Status.Failed, FailureTaskResult(
-        new IllegalStateException("Return code is not equals to zero."), rc, stderr.toString))
+        new IllegalStateException(s"Return code is nonzero. Value: ${rc.get}"), rc.get, stderr.toString))
     } else {
       def lookupFunction: String => WdlValue = WdlExpression.standardLookupFunction(task.inputs, task.declarations, expressionEval)
       val outputsExpressions = task.outputs.map(
         output => output.name -> OutputStmtEval(output.wdlType, output.requiredExpression.evaluate(lookupFunction, expressionEval)))
-      processOutputResult(rc, outputsExpressions)
+      processOutputResult(rc.get, outputsExpressions)
     }
   }
 
