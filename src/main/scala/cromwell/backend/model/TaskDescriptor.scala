@@ -1,5 +1,6 @@
 package cromwell.backend.model
 
+import cromwell.backend.model.ExecutionIndex.ExecutionIndex
 import wdl4s.TaskOutput
 import wdl4s.command.CommandPart
 import wdl4s.values.WdlValue
@@ -8,6 +9,7 @@ import wdl4s.values.WdlValue
   * Represents basic data needed to execute a task in a defined backend.
  *
   * @param name Task name.
+  * @param index If it's a sub task (scatter) it defines its id otherwise none.
   * @param user User who want to execute the task.
   * @param commandTemplate Arguments for the execution.
   * @param workingDir Task working directory.
@@ -15,6 +17,7 @@ import wdl4s.values.WdlValue
   * @param runtimeAttributes Configuration needed at runtime in order to execute a task.
   */
 case class TaskDescriptor(name: String,
+                          index: ExecutionIndex,
                           user: String,
                           commandTemplate: Seq[CommandPart], //TODO: Should be Wdl Agnostic
                           declarations: Seq[wdl4s.Declaration], //TODO: Should be Wdl Agnostic
