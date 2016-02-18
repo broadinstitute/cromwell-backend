@@ -1,6 +1,7 @@
 package cromwell.backend
 
-import cromwell.backend.model.{ExecutionHash, Subscription}
+import cromwell.backend.model.Subscription
+import cromwell.caching.ExecutionHash
 
 import scala.concurrent.Future
 

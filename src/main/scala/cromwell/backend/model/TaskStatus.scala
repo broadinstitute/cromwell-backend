@@ -1,21 +1,27 @@
 package cromwell.backend.model
 
-import cromwell.backend.model.Status.Status
+import cromwell.caching.ExecutionHash
+import wdl4s.values.WdlValue
 
-/**
-  * Represents status of an execution.
-  */
-object Status extends Enumeration {
-  type Status = Value
-  val Created, Running, Succeeded, Failed, Canceled = Value
+import scala.concurrent.Future
+
+
+sealed trait TaskStatus extends ExecutionEvent
+
+sealed trait NonTerminalTaskStatus extends TaskStatus
+final case class CreatedTaskStatus(stdout: String, stderr: String) extends NonTerminalTaskStatus
+case object RunningTaskStatus extends NonTerminalTaskStatus
+
+sealed trait TerminalTaskStatus extends TaskStatus
+final case class SucceededTaskStatus(outputs: Map[String, WdlValue], returnCode: Int, hash: ExecutionHash) extends TerminalTaskStatus
+case object CanceledTaskStatus extends TerminalTaskStatus
+
+sealed trait FailedTaskStatus extends TerminalTaskStatus
+final case class FailedWithoutReturnCodeTaskStatus(error: Throwable) extends FailedTaskStatus
+final case class FailedWithReturnCodeTaskStatus(error: Throwable, returnCode: Int) extends FailedTaskStatus
+
+object Implicits {
+  implicit class EnhancedTerminalTaskStatus(val status: TerminalTaskStatus) extends AnyVal {
+    def future: Future[TerminalTaskStatus] = Future.successful(status)
+  }
 }
-
-/**
-  * Defines a task intermediate status.
-  */
-case class TaskStatus(status: Status) extends ExecutionEvent
-
-/**
-  * Defines a task final status with the resulting data.
-  */
-case class TaskFinalStatus(status: Status, result: ExecutionResult) extends ExecutionEvent
