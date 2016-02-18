@@ -1,12 +1,13 @@
 package cromwell.backend
 
-import cromwell.backend.model.Subscription
-import cromwell.caching.Cacheable
+import cromwell.backend.model.{ExecutionHash, Subscription}
+
+import scala.concurrent.Future
 
 /**
   * Defines basic functionality to interact with a Backend.
   */
-trait Backend extends Cacheable {
+trait Backend {
   /**
     * Prepare the task and context for execution.
     */
@@ -36,4 +37,11 @@ trait Backend extends Cacheable {
     * Unsubscribe to events on backend.
     */
   def unsubscribeToEvent[A](subscription: Subscription[A]): Unit
+
+  /**
+    * Returns hash based on TaskDescriptor attributes.
+    *
+    * @return Return hash for related task.
+    */
+  def computeHash: Future[ExecutionHash]
 }

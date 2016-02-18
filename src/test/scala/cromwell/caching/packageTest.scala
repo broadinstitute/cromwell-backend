@@ -11,7 +11,7 @@ class packageTest extends WordSpecLike with Matchers {
       val wdlValue = WdlString("Pepe")
       val expectedHash = "e885d567f57b0f87333c25f7f3a1e381"
 
-      val actualHash = caching.computeWdlValueHash(wdlValue)
+      val actualHash = computeWdlValueHash(wdlValue)
 
       assert(expectedHash.equals(actualHash))
     }
@@ -23,7 +23,7 @@ class packageTest extends WordSpecLike with Matchers {
       val wdlArray = WdlArray.apply(WdlArrayType(WdlStringType), Seq(wdlValue, wdlValue2, wdlValue3))
       val expectedHash = "517ff4e80f3efbbafc4f4ec3854583bd"
 
-      val actualHash = caching.computeWdlValueHash(wdlArray)
+      val actualHash = computeWdlValueHash(wdlArray)
 
       assert(expectedHash.equals(actualHash))
     }
@@ -33,7 +33,7 @@ class packageTest extends WordSpecLike with Matchers {
       val wdlValue = WdlSingleFile(file.name)
       val expectedHash = "5d41402abc4b2a76b9719d911017c592"
 
-      val actualHash = caching.computeWdlValueHash(wdlValue)
+      val actualHash = computeWdlValueHash(wdlValue)
 
       file.delete()
       assert(expectedHash.equals(actualHash))
@@ -46,7 +46,7 @@ class packageTest extends WordSpecLike with Matchers {
       val wdlArray = WdlArray.apply(WdlArrayType(WdlFileType), Seq(WdlSingleFile(file.name), WdlSingleFile(file2.name), WdlSingleFile(file3.name)))
       val expectedHash = "30a2d1b814eedf49192482611b04fb67"
 
-      val actualHash = caching.computeWdlValueHash(wdlArray)
+      val actualHash = computeWdlValueHash(wdlArray)
 
       file.delete()
       file2.delete()
@@ -64,7 +64,7 @@ class packageTest extends WordSpecLike with Matchers {
       val wdlMap = WdlMap(WdlMapType(WdlStringType, WdlFileType), Map(wdlString2 -> wdlFile2, wdlString -> wdlFile))
       val expectedHash = "0eb8eecdb31d870ecffb8e2657693422"
 
-      val actualHash = caching.computeWdlValueHash(wdlMap)
+      val actualHash = computeWdlValueHash(wdlMap)
 
       file.delete()
       file2.delete()
