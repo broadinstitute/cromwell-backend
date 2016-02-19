@@ -9,10 +9,10 @@ import scala.concurrent.Future
 
 object BackendValidationActor {
   sealed trait BackendValidationActorMessage
-  final case class Validate(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None) extends BackendValidationActorMessage
+  case object Validate extends BackendValidationActorMessage
   sealed trait ValidationResult extends BackendValidationActorMessage
-  final case class FailedValidationResult(errors: List[String]) extends ValidationResult
   case object SuccessfulValidationResult extends ValidationResult
+  final case class FailedValidationResult(errors: List[String]) extends ValidationResult
 }
 
 /**
@@ -28,22 +28,24 @@ object BackendValidationActor {
   * 3.) Optionally, validate the inputs (if passed along)
   */
 trait BackendValidationActor extends Actor with ActorLogging {
+
   import scala.concurrent.ExecutionContext.Implicits.global
+
+  val namespace: NamespaceWithWorkflow
+  val wfInputs: Option[WorkflowCoercedInputs] = None
+  val wfOptions: Option[String] = None
 
   /**
     *
-    * @param namespace     Represent a directly runnable WDL Namespace
-    * @param wfInputs      Workflow options specified as a Json String
-    * @param wfOptionsJson Workflow options specified as a Json String
     * @return True (wrapped in a message) to indicate a Yay!
     */
-  def validateWorkflow(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None): Future[ValidationResult]
+  protected def validateWorkflow: Future[ValidationResult]
 
   //We don't want subclasses to modify this behavior
   final def receive: Receive = LoggingReceive {
-    case Validate(namespace, inputsJson, optionsJson) =>
+    case Validate =>
       val requester = sender()
-      validateWorkflow(namespace, inputsJson, optionsJson) map {
+      validateWorkflow map {
         requester ! _
       } recover {
         // The call to validateWorkflow resulted in an exception

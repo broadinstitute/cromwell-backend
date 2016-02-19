@@ -1,18 +1,18 @@
 package cromwell.backend
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import cromwell.backend.model.TaskDescriptor
+import akka.actor.{Props, ActorRef, ActorSystem}
 
 object DefaultBackendFactory extends BackendFactory {
   /**
-    * Returns a backend actor instance based on the name, Cromwell actor system and specific task.
-    * @param initClass Initialization class for the specific backend.
-    * @param actorSystem Cromwell Engine actor system.
-    * @param task Specific task to be executed in the backend.
-    * @return A backend instance.
+    * Returns an actor reference related to the Backend
+    *
+    * @param initClass   Fully qualified class name of the backend to instantiate
+    * @param actorSystem Cromwell Engine ActorSystem
+    * @param args        The list of arguments that the class expects
+    * @return A backend actor reference corresponding to the initClass
     */
-  override def getBackend(initClass: String, actorSystem: ActorSystem, task: TaskDescriptor): ActorRef = {
-    val backendActor = Props.create(Class.forName(initClass).asInstanceOf[Class[BackendActor]], task)
-    actorSystem.actorOf(backendActor)
+  override def getBackendActorFor(initClass: String, actorSystem: ActorSystem, args: AnyRef*): ActorRef = {
+    val backendActorProps = Props.create(Class.forName(initClass), args: _*)
+    actorSystem.actorOf(backendActorProps)
   }
 }

@@ -37,7 +37,8 @@ libraryDependencies ++= {
     "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test",
     "com.github.pathikrit" %% "better-files" % "2.13.0",
     "commons-codec" % "commons-codec" % "1.10",
-    "org.broadinstitute" %% "wdl4s" % "0.2")
+    "org.broadinstitute" %% "wdl4s" % "0.2",
+    "org.mockito" % "mockito-core" % "1.10.19")
 }
 
 // The reason why -Xmax-classfile-name is set is because this will fail
