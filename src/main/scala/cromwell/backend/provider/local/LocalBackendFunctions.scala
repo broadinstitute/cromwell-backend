@@ -5,7 +5,7 @@ import java.nio.file.{Path, Paths}
 import cromwell.backend.expressions.WdlStandardLibraryImpl
 import cromwell.backend.io.IoInterface
 import cromwell.backend.io.shared.SharedFileSystemIoInterface
-import cromwell.backend.provider.local.LocalBackend._
+import cromwell.backend.provider.local.LocalBackendActor._
 import wdl4s.values.WdlFile
 
 import scala.util.{Success, Try}

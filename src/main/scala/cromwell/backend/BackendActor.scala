@@ -3,7 +3,9 @@ package cromwell.backend
 import akka.actor.{Actor, ActorLogging}
 import akka.event.LoggingReceive
 import cromwell.backend.BackendActor._
-import cromwell.backend.model.{TaskDescriptor, Subscription}
+import cromwell.backend.model.{ExecutionHash, Subscription}
+
+import scala.util._
 
 object BackendActor {
   sealed trait BackendActorMessage
@@ -14,6 +16,10 @@ object BackendActor {
   case class SubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
   case class UnsubscribeToEvent[A](subscription: Subscription[A]) extends BackendActorMessage
   case object ComputeHash extends BackendActorMessage
+
+  sealed trait ComputeHashResult extends BackendActorMessage
+  final case class SuccessfulComputeHashResult(hash: ExecutionHash) extends ComputeHashResult
+  final case class FailedComputeHashResult(error: Throwable) extends ComputeHashResult
 }
 
 /**
@@ -22,6 +28,8 @@ object BackendActor {
   * Backend methods should be implemented by each custom backend.
   */
 trait BackendActor extends Backend with Actor with ActorLogging {
+  private implicit val ctxt = context.dispatcher
+
   def receive: Receive = LoggingReceive {
     case Prepare => prepare()
     case Execute => execute()
@@ -29,6 +37,11 @@ trait BackendActor extends Backend with Actor with ActorLogging {
     case CleanUp => cleanUp()
     case SubscribeToEvent(obj) => subscribeToEvent(obj)
     case UnsubscribeToEvent(obj) => unsubscribeToEvent(obj)
-    case ComputeHash => sender ! computeHash
+    case ComputeHash =>
+      val sndr = sender()
+      computeHash onComplete {
+        case Success(h) => sndr ! SuccessfulComputeHashResult(h)
+        case Failure(e) => sndr ! FailedComputeHashResult(e)
+      }
   }
 }

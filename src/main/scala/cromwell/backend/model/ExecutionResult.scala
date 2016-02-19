@@ -32,5 +32,4 @@ case class FailureResult(exception: Throwable) extends ExecutionResult
   * @param overallHash Contains a hash from TaskDescriptor.
   * @param dockerHash Contains docker image hash.
   */
-// TODO: remove dockerHash.
-case class ExecutionHash(overallHash: String, dockerHash: Option[String])
+case class ExecutionHash(overallHash: String, dockerHash: Option[String] = None)

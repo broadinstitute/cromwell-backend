@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.StrictLogging
 import cromwell.backend.BackendActor
 import cromwell.backend.model._
 import cromwell.backend.provider.local.FileExtensions._
-import cromwell.caching.caching
+import cromwell.caching.computeWdlValueHash
 import org.apache.commons.codec.digest.DigestUtils
 import wdl4s.WdlExpression
 import wdl4s.types.{WdlArrayType, WdlFileType, WdlType}
@@ -19,12 +19,13 @@ import wdl4s.values.{WdlArray, WdlSingleFile, WdlValue}
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.sys.process._
-import scala.util.{Random, Try}
+import scala.util.Try
 
-object LocalBackend {
+object LocalBackendActor {
   // Folders
   val CromwellExecutionDir = "cromwell-executions"
 
@@ -41,7 +42,7 @@ object LocalBackend {
 
   case class OutputStmtEval(lhs: WdlType, rhs: Try[WdlValue])
 
-  def props(task: TaskDescriptor): Props = Props(new LocalBackend(task))
+  def props(task: TaskDescriptor): Props = Props(new LocalBackendActor(task))
 }
 
 /**
@@ -49,9 +50,9 @@ object LocalBackend {
   *
   * @param task Task descriptor.
   */
-class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging {
+class LocalBackendActor(task: TaskDescriptor) extends BackendActor with StrictLogging {
 
-  import LocalBackend._
+  import LocalBackendActor._
 
   implicit val timeout = Timeout(5 seconds)
   private val subscriptions = ArrayBuffer[Subscription[ActorRef]]()
@@ -85,7 +86,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
 
     try {
       val command = initiateCommand()
-      logger.debug(s"Creating bash script for executing command: ${command}.")
+      logger.debug(s"Creating bash script for executing command: $command.")
       writeBashScript(command, executionDir)
       notifyToSubscribers(new TaskStatus(Status.Created))
     } catch {
@@ -105,7 +106,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * Executes task in given context.
     */
   override def execute(): Unit = {
-    notifyToSubscribers(executeTask)
+    notifyToSubscribers(executeTask())
   }
 
   /**
@@ -136,19 +137,19 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     *
     * @return Return hash for related task.
     */
-  override def computeHash: String = {
+  override def computeHash: Future[ExecutionHash] = {
     val orderedInputs = task.inputs.toSeq.sortBy(_._1)
     val orderedOutputs = task.outputs.sortWith((l, r) => l.name > r.name)
     val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1):_*)
     val overallHash = Seq(
       task.commandTemplate,
-      orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v)}" } mkString "\n",
+      orderedInputs map { case (k, v) => s"$k=${computeWdlValueHash(v)}" } mkString "\n",
       // TODO: Docker hash computation is missing. In case it exists.
       orderedRuntime map { case (k, v) => s"$k=$v" } mkString "\n",
       orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.requiredExpression.toWdlString}" } mkString "\n"
     ).mkString("\n---\n")
 
-    DigestUtils.md5Hex(overallHash)
+    Future.successful(ExecutionHash(DigestUtils.md5Hex(overallHash)))
   }
 
   /**
@@ -195,7 +196,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     */
   private def buildDockerRunCommand(image: String): String = {
     val dockerVolume = "-v %s:%s"
-    val inputFolderList = extractFolderFromInput(task.inputs.map(_._2).toList)
+    val inputFolderList = extractFolderFromInput(task.inputs.values.toList)
     val inputVolumes = inputFolderList match {
       case a: List[String] => inputFolderList.map(v => dockerVolume.format(v, v)).mkString(" ")
       case _ => ""
@@ -313,12 +314,12 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * @return A TaskStatus with the final status of the task.
     */
   private def executeTask(): TaskFinalStatus = {
-    def getCmdToExecute(): Seq[String] = dockerImage match {
+    val commandToExecute: Seq[String] = dockerImage match {
       case Some(image) => buildDockerRunCommand(image).split(" ").toSeq
       case None => argv
     }
 
-    val process = getCmdToExecute.run(ProcessLogger(stdoutWriter writeWithNewline, stderrTailed writeWithNewline))
+    val process = commandToExecute.run(ProcessLogger(stdoutWriter writeWithNewline, stderrTailed writeWithNewline))
     processAbortFunc = Option(() => process.destroy())
     notifyToSubscribers(new TaskStatus(Status.Running))
     val backendCommandString = argv.map(s => "\"" + s + "\"").mkString(" ")
@@ -346,9 +347,9 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
         new IllegalStateException(s"Return code is nonzero. Value: ${rc.get}"), rc.get, stderr.toString))
     } else {
       def lookupFunction: String => WdlValue = WdlExpression.standardLookupFunction(task.inputs, task.declarations, expressionEval)
-      val outputsExpressions = task.outputs.map(
+      val outputExpressions = task.outputs.map(
         output => output.name -> OutputStmtEval(output.wdlType, output.requiredExpression.evaluate(lookupFunction, expressionEval)))
-      processOutputResult(rc.get, outputsExpressions)
+      processOutputResult(rc.get, outputExpressions.toMap)
     }
   }
 
@@ -356,17 +357,20 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * Process output evaluating expressions, checking for created files and converting WdlString to WdlSimpleFile if necessary.
     *
     * @param processReturnCode Return code from process.
-    * @param outputsExpressions Outputs.
+    * @param outputExpressions Outputs.
     * @return TaskStatus with final status of the task.
     */
-  private def processOutputResult(processReturnCode: Int, outputsExpressions: Seq[(String, OutputStmtEval)]): TaskFinalStatus = {
-    if (outputsExpressions.filter(_._2.rhs.isFailure).size > 0) {
+  private def processOutputResult(processReturnCode: Int, outputExpressions: Map[String, OutputStmtEval]): TaskFinalStatus = {
+    if (outputExpressions.values.exists(_.rhs.isFailure)) {
       TaskFinalStatus(Status.Failed, FailureTaskResult(new IllegalStateException("Failed to evaluate output expressions.",
-        outputsExpressions.filter(_._2.rhs.isFailure).head._2.rhs.failed.get), processReturnCode, stderr.toString))
+        outputExpressions.values.collectFirst { case v if v.rhs.isFailure => v.rhs.failed.get } get), processReturnCode, stderr.toString))
     } else {
       try {
-        TaskFinalStatus(Status.Succeeded, SuccessfulTaskResult(outputsExpressions.map(
-          output => output._1 -> resolveOutputValue(output._2)).toMap, new ExecutionHash(computeHash, None)))
+        // FIXME this code is not properly structured to deal with asynchronous hash computation.  The Await.result is
+        // gross but safe since the code isn't actually pulling down Docker image hashes, so the `Future` we're getting
+        // back is currently just a `Future.successful`.
+        TaskFinalStatus(
+          Status.Succeeded, SuccessfulTaskResult(outputExpressions.mapValues(resolveOutputValue), Await.result(computeHash, Duration.Inf)))
       } catch {
         case ex: Exception => TaskFinalStatus(Status.Failed, FailureTaskResult(ex, processReturnCode, stderr.toString))
       }
