@@ -44,4 +44,6 @@ trait Backend {
     * @return Return hash for related task.
     */
   def computeHash: Future[ExecutionHash]
+
+  def name: String
 }

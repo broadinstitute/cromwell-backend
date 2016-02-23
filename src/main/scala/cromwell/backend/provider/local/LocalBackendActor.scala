@@ -431,4 +431,6 @@ class LocalBackendActor(task: TaskDescriptor) extends BackendActor with StrictLo
   private def initiateCommand(): String = {
     normalize(task.commandTemplate.map(_.instantiate(task.declarations, task.inputs, expressionEval)).mkString(""))
   }
+
+  override def name = "Local"
 }

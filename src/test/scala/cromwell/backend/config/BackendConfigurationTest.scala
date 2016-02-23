@@ -9,27 +9,24 @@ class BackendConfigurationTest extends WordSpecLike with Matchers {
 
   "A Backend configuration" should {
     "return default backend" in {
-      val backendConfiguration = new BackendConfiguration(backendList, "local")
-      val actual = backendConfiguration.getDefaultBackend()
-      assert(backendConfigurationEntry.equals(actual))
+      val backendConfiguration = BackendConfiguration(backendList, "local")
+      assert(backendConfigurationEntry.equals(backendConfiguration.defaultBackend))
     }
 
     "return a list of backend configuration entries" in {
-      val backendConfiguration = new BackendConfiguration(backendList, "local")
-      val actual = backendConfiguration.getAllBackendConfigurations()
-      assert(backendList.equals(actual))
+      val backendConfiguration = BackendConfiguration(backendList, "local")
+      assert(backendList.equals(backendConfiguration.allBackends))
     }
 
     "return an empty list of backend configuration entries if there is no one defined" in {
-      val backendConfiguration = new BackendConfiguration(List(), "local")
-      val actual = backendConfiguration.getAllBackendConfigurations()
-      assert(actual.isEmpty)
+      val backendConfiguration = BackendConfiguration(List(), "local")
+      assert(backendConfiguration.allBackends.isEmpty)
     }
 
     "throw an exception when a default backend is not defined" in {
-      val backendConfiguration = new BackendConfiguration(backendList, "someOther")
+      val backendConfiguration = BackendConfiguration(backendList, "someOther")
       intercept[IllegalStateException] {
-        backendConfiguration.getDefaultBackend()
+        backendConfiguration.defaultBackend
       }
     }
   }

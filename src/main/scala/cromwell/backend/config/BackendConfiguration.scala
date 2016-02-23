@@ -13,45 +13,38 @@ import scala.util.Try
   * @param initClass       Initialization class for the specific backend.
   * @param validationClass Optional Fully qualified name of the validation class to load
   */
-case class BackendConfigurationEntry(name: String, initClass: String, validationClass: Option[String] = None)
+case class BackendConfigurationEntry(name: String, initClass: String, validationClass: Option[String] = None, backendTypeClass: Option[String] = None)
 
 object BackendConfiguration {
-  val config = ConfigFactory.load()
-  val backendCfg = config.getConfig("backend")
-  val defaultBackend = backendCfg.getString("default")
-  val backendProviders = backendCfg.getConfigList("providers").asScala.toList
-  val backendList = backendProviders.map(entry =>
-    BackendConfigurationEntry(entry.getString("name"), entry.getString("initClass"), Try(entry.getString("validationClass")).toOption))
+  val BackendConfig = ConfigFactory.load().getConfig("backend")
+  val DefaultBackendName = BackendConfig.getString("default")
+  val BackendProviders = BackendConfig.getConfigList("providers").asScala.toList
+  val BackendList = BackendProviders.map(entry => BackendConfigurationEntry(
+    entry.getString("name"),
+    entry.getString("initClass"),
+    Try(entry.getString("validationClass")).toOption,
+    Try(entry.getString("backendTypeClass")).toOption))
 
-  def apply(): BackendConfiguration = new BackendConfiguration(backendList, defaultBackend)
+  def apply(): BackendConfiguration = new BackendConfiguration(BackendList, DefaultBackendName)
 }
 
 /**
   * Retrieves backend configuration.
   *
-  * @param backendList    List of backend entries in configuration file.
-  * @param defaultBackend Backend name to be used as default.
+  * @param allBackends  List of backend entries in configuration file.
+  * @param defaultBackendName        Backend name to be used as default.
   */
-class BackendConfiguration(backendList: List[BackendConfigurationEntry], defaultBackend: String) extends StrictLogging {
+case class BackendConfiguration private[config](allBackends: List[BackendConfigurationEntry], defaultBackendName: String) extends StrictLogging {
+  import BackendConfiguration._
   /**
     * Gets default backend configuration. There will be always just one default backend defined in configuration file.
     * It lookup for the backend definition which contains the name defined in 'default' entry in backend configuration.
     *
     * @return Backend configuration.
     */
-  def getDefaultBackend(): BackendConfigurationEntry = backendList find {
-    _.name.equals(defaultBackend)
-  } getOrElse {
+  def defaultBackend: BackendConfigurationEntry = allBackends find { _.name == defaultBackendName } getOrElse {
     val errMsg = "Default backend configuration was not found."
     logger.error(errMsg)
     throw new IllegalStateException(errMsg)
   }
-
-  /**
-    * Gets all backend configurations from config file.
-    *
-    * @return
-    */
-  def getAllBackendConfigurations(): List[BackendConfigurationEntry] = backendList
-
 }

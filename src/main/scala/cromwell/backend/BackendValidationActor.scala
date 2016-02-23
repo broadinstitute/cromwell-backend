@@ -35,7 +35,6 @@ trait BackendValidationActor extends Actor with ActorLogging {
     * @param namespace     Represent a directly runnable WDL Namespace
     * @param wfInputs      Workflow options specified as a Json String
     * @param wfOptionsJson Workflow options specified as a Json String
-    * @return True (wrapped in a message) to indicate a Yay!
     */
   def validateWorkflow(namespace: NamespaceWithWorkflow, wfInputs: Option[WorkflowCoercedInputs] = None, wfOptionsJson: Option[String] = None): Future[ValidationResult]
 
@@ -50,6 +49,6 @@ trait BackendValidationActor extends Actor with ActorLogging {
         case exception: Throwable =>
           requester ! FailedValidationResult(List(s"Failed to validate the workflow: ${exception.getMessage}"))
       }
-    case unknownMessage => log.error(s"BackendValidationActor received an unknown message: ${unknownMessage}")
+    case unknownMessage => log.error(s"BackendValidationActor received an unknown message: $unknownMessage")
   }
 }
