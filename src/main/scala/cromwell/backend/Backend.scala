@@ -1,6 +1,6 @@
 package cromwell.backend
 
-import cromwell.backend.model.Subscription
+import cromwell.backend.model.{EventType, ExecutionEvent, Subscription}
 import cromwell.caching.Cacheable
 
 /**
@@ -36,4 +36,10 @@ trait Backend extends Cacheable {
     * Unsubscribe to events on backend.
     */
   def unsubscribeToEvent[A](subscription: Subscription[A]): Unit
+
+  /**
+    * notify to subscribers on specific event type.
+    *
+    */
+  def notifyToSubscribers[A](eventType: A): Unit
 }
