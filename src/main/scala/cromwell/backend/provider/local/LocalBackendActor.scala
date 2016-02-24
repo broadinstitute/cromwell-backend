@@ -100,7 +100,7 @@ class LocalBackendActor(task: TaskDescriptor) extends BackendActor with StrictLo
     */
   override def stop(): Unit = {
     processAbortFunc.get.apply()
-    notifySubscribers(CanceledTaskStatus)
+    notifySubscribers(StoppedTaskStatus)
   }
 
   /**
