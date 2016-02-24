@@ -11,10 +11,11 @@ class LocalBackendValidator(override val namespace: NamespaceWithWorkflow,
                             override val wfOptions: Option[String] = None) extends BackendValidationActor {
   /**
     *
-    * @return True (wrapped in a message) to indicate a Yay!
+    * @return `ValidateResult` to indicate a Yay! or a Nay!
     */
   override def validateWorkflow: Future[ValidationResult] = {
     import scala.concurrent.ExecutionContext.Implicits.global
+    //Do something meaningful here, don't know what yet. Currently it's mostly for demo purposes
     Future(SuccessfulValidationResult)
   }
 }

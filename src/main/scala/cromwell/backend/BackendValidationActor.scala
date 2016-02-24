@@ -37,7 +37,7 @@ trait BackendValidationActor extends Actor with ActorLogging {
 
   /**
     *
-    * @return True (wrapped in a message) to indicate a Yay!
+    * @return `ValidateResult` to indicate a Yay! or a Nay!
     */
   protected def validateWorkflow: Future[ValidationResult]
 
