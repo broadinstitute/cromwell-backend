@@ -3,7 +3,8 @@ package cromwell.backend
 import akka.actor.{Actor, ActorLogging}
 import akka.event.LoggingReceive
 import cromwell.backend.BackendActor._
-import cromwell.backend.model.{ExecutionHash, Subscription}
+import cromwell.backend.model.Subscription
+import cromwell.caching.ExecutionHash
 
 import scala.util._
 

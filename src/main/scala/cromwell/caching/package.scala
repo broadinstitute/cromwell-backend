@@ -9,6 +9,13 @@ import scala.collection.immutable.ListMap
 
 package object caching {
 
+  /**
+    * Hash of task execution.
+    * @param overallHash Contains a hash from TaskDescriptor.
+    * @param dockerHash Contains docker image hash.
+    */
+  case class ExecutionHash(overallHash: String, dockerHash: Option[String] = None)
+
   def computeWdlValueHash(wdlValue: WdlValue): String = {
     wdlValue match {
       case w: WdlObject => w.value mapValues computeWdlValueHash mkString ""
