@@ -7,14 +7,14 @@ import org.scalatest.{BeforeAndAfterAll, MustMatchers, WordSpecLike}
 import org.scalatest.mock.MockitoSugar
 import wdl4s.NamespaceWithWorkflow
 
-class DefaultBackendFactoryRef extends TestKit(ActorSystem("DefaultBackendFactorySpec"))
+class DefaultBackendFactorySpec extends TestKit(ActorSystem("DefaultBackendFactorySpec"))
   with WordSpecLike
   with MustMatchers
   with BeforeAndAfterAll
   with ImplicitSender
   with MockitoSugar {
 
-  val localBackendInitClass = "cromwell.backend.provider.local.LocalBackend"
+  val localBackendInitClass = "cromwell.backend.provider.local.LocalBackendActor"
   val localBackendValidatorClass = "cromwell.backend.provider.local.LocalBackendValidator"
 
   "DefaultBackendFactory" should {
