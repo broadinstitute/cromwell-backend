@@ -35,6 +35,7 @@ libraryDependencies ++= {
     "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     "ch.qos.logback" % "logback-classic" % "1.1.3",
     "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test",
+    "org.mockito" % "mockito-core" % "1.9.5",
     "com.github.pathikrit" %% "better-files" % "2.13.0",
     "commons-codec" % "commons-codec" % "1.10",
     "org.broadinstitute" %% "wdl4s" % "0.2")

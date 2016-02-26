@@ -1,7 +1,6 @@
 package cromwell.backend.provider.local
 
 import java.nio.file.{Files, Path, Paths}
-import java.util.regex.Pattern
 
 import akka.actor.{ActorRef, Props}
 import akka.util.Timeout
@@ -10,19 +9,14 @@ import com.typesafe.scalalogging.StrictLogging
 import cromwell.backend.BackendActor
 import cromwell.backend.model._
 import cromwell.backend.provider.local.FileExtensions._
-import cromwell.caching.caching
-import org.apache.commons.codec.digest.DigestUtils
-import wdl4s.WdlExpression
-import wdl4s.types.{WdlArrayType, WdlFileType, WdlType}
-import wdl4s.values.{WdlArray, WdlSingleFile, WdlValue}
+import wdl4s.types.{WdlArrayType, WdlFileType}
+import wdl4s.values.{WdlArray, WdlValue}
 
-import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.sys.process._
-import scala.util.{Random, Try}
+import scala.util.Try
 import cromwell.backend.provider._
 
 object LocalBackend {
@@ -39,8 +33,6 @@ object LocalBackend {
   val DockerFlag = "docker"
   val ContinueOnRcFlag = "continueOnReturnCode"
   val FailOnStderrFlag = "failOnStderr"
-
-  case class OutputStmtEval(lhs: WdlType, rhs: Try[WdlValue])
 
   def props(task: TaskDescriptor): Props = Props(new LocalBackend(task))
 }
@@ -63,7 +55,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
   val shardId = task.index
   val executionDir = shardId match {
     case Some(index) => Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir, index.toString).toAbsolutePath
-    case None =>  Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir).toAbsolutePath
+    case None => Paths.get(CromwellExecutionDir, workingDir, taskWorkingDir).toAbsolutePath
   }
 
   val stdout = Paths.get(executionDir.toString, StdoutFile)
@@ -88,7 +80,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     try {
       val command = task.initiateCommand(expressionEval)
       logger.debug(s"Creating bash script for executing command: ${command}.")
-      writeBashScript(command, executionDir)
+      script.writeBashScript(command, executionDir)
       notifyToSubscribers(new TaskStatus(Status.Created))
     } catch {
       case ex: Exception => notifyToSubscribers(new TaskFinalStatus(Status.Failed, FailureResult(ex)))
@@ -139,18 +131,7 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
     * @return Return hash for related task.
     */
   override def computeHash: String = {
-    val orderedInputs = task.inputs.toSeq.sortBy(_._1)
-    val orderedOutputs = task.outputs.sortWith((l, r) => l.name > r.name)
-    val orderedRuntime = ListMap(task.runtimeAttributes.toSeq.sortBy(_._1):_*)
-    val overallHash = Seq(
-      task.commandTemplate,
-      orderedInputs map { case (k, v) => s"$k=${caching.computeWdlValueHash(v)}" } mkString "\n",
-      // TODO: Docker hash computation is missing. In case it exists.
-      orderedRuntime map { case (k, v) => s"$k=$v" } mkString "\n",
-      orderedOutputs map { o => s"${o.wdlType.toWdlString} ${o.name} = ${o.requiredExpression.toWdlString}" } mkString "\n"
-    ).mkString("\n---\n")
-
-    DigestUtils.md5Hex(overallHash)
+    task.computeHash
   }
 
   /**
@@ -223,48 +204,6 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
           case _ => extractFolderFromInput(wdlValueList.tail)
         }
       case Nil => List()
-    }
-  }
-
-  /**
-    * Writes the script file containing the user's command from the WDL as well
-    * as some extra shell code for monitoring jobs
-    */
-  private def writeBashScript(taskCommand: String, executionPath: Path): Unit = {
-    script.write(
-      s"""#!/bin/sh
-          |cd $executionPath
-          |$taskCommand
-          |echo $$? > rc
-          |""".stripMargin)
-  }
-
-  /**
-    * Resolves absolute path for output files, resolving a non-absolute path to the context of the executionDirectory
-    * if necessary.
-    *
-    * @param output Pair of WdlType and WdlValue
-    * @return WdlValue with absolute path if it is a file.
-    */
-  private def resolveOutputValue(output: OutputStmtEval): WdlValue = {
-    def getAbsolutePath(file: String): Path = {
-      val asIs = Paths.get(file)
-      val path = if (asIs.isAbsolute) asIs else Paths.get(executionDir.toString, file)
-
-      if (path.exists) path else throw new IllegalStateException(s"Output file ${path.toFile.getAbsolutePath} does not exist.")
-    }
-
-    //TODO: check for map of files. Is going to be supported that use case?
-    val lhsType = output.lhs
-    val rhsType = output.rhs.get.wdlType
-    rhsType match {
-      case rhs if rhs == WdlFileType | lhsType == WdlFileType =>
-        new WdlSingleFile(getAbsolutePath(output.rhs.get.toWdlString.replace("\"", "").trim).toString)
-      case rhs if rhs == WdlArrayType(WdlFileType) | lhsType == WdlArrayType(WdlFileType) =>
-        output.rhs.get.asInstanceOf[WdlArray].map(wdlValue =>
-          new WdlSingleFile(getAbsolutePath(wdlValue.toWdlString.replace("\"", "").trim).toString))
-      case rhs if rhs == lhsType => output.rhs.get
-      case rhs => lhsType.coerceRawValue(output.rhs.get).get
     }
   }
 
@@ -347,33 +286,8 @@ class LocalBackend(task: TaskDescriptor) extends BackendActor with StrictLogging
       TaskFinalStatus(Status.Failed, FailureTaskResult(
         new IllegalStateException(s"Return code is nonzero. Value: ${rc.get}"), rc.get, stderr.toString))
     } else {
-      def lookupFunction: String => WdlValue = WdlExpression.standardLookupFunction(task.inputs, task.declarations, expressionEval)
-      val outputsExpressions = task.outputs.map(
-        output => output.name -> OutputStmtEval(output.wdlType, output.requiredExpression.evaluate(lookupFunction, expressionEval)))
-      processOutputResult(rc.get, outputsExpressions)
+      task.evaluateTaskOutputExpression(rc.get, expressionEval, stderr, executionDir)
     }
   }
-
-  /**
-    * Process output evaluating expressions, checking for created files and converting WdlString to WdlSimpleFile if necessary.
-    *
-    * @param processReturnCode Return code from process.
-    * @param outputsExpressions Outputs.
-    * @return TaskStatus with final status of the task.
-    */
-  private def processOutputResult(processReturnCode: Int, outputsExpressions: Seq[(String, OutputStmtEval)]): TaskFinalStatus = {
-    if (outputsExpressions.filter(_._2.rhs.isFailure).size > 0) {
-      TaskFinalStatus(Status.Failed, FailureTaskResult(new IllegalStateException("Failed to evaluate output expressions.",
-        outputsExpressions.filter(_._2.rhs.isFailure).head._2.rhs.failed.get), processReturnCode, stderr.toString))
-    } else {
-      try {
-        TaskFinalStatus(Status.Succeeded, SuccessfulTaskResult(outputsExpressions.map(
-          output => output._1 -> resolveOutputValue(output._2)).toMap, new ExecutionHash(computeHash, None)))
-      } catch {
-        case ex: Exception => TaskFinalStatus(Status.Failed, FailureTaskResult(ex, processReturnCode, stderr.toString))
-      }
-    }
-  }
-
 
 }
