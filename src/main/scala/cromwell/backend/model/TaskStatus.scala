@@ -14,7 +14,7 @@ case object RunningTaskStatus extends NonTerminalTaskStatus
 
 sealed trait TerminalTaskStatus extends TaskStatus
 final case class SucceededTaskStatus(outputs: Map[String, WdlValue], returnCode: Int, hash: ExecutionHash) extends TerminalTaskStatus
-case object CanceledTaskStatus extends TerminalTaskStatus
+case object StoppedTaskStatus extends TerminalTaskStatus
 
 sealed trait FailedTaskStatus extends TerminalTaskStatus
 final case class FailedWithoutReturnCodeTaskStatus(error: Throwable) extends FailedTaskStatus
